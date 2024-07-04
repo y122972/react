@@ -71,7 +71,6 @@ if (__DEV__) {
 
 let currentlyRenderingFiber: Fiber | null = null;
 let lastContextDependency: ContextDependency<mixed> | null = null;
-let lastFullyObservedContext: ReactContext<any> | null = null;
 
 let isDisallowedContextReadInDEV: boolean = false;
 
@@ -80,7 +79,6 @@ export function resetContextDependencies(): void {
   // cannot be called outside the render phase.
   currentlyRenderingFiber = null;
   lastContextDependency = null;
-  lastFullyObservedContext = null;
   if (__DEV__) {
     isDisallowedContextReadInDEV = false;
   }
@@ -673,7 +671,6 @@ export function prepareToReadContext(
 ): void {
   currentlyRenderingFiber = workInProgress;
   lastContextDependency = null;
-  lastFullyObservedContext = null;
 
   const dependencies = workInProgress.dependencies;
   if (dependencies !== null) {
@@ -729,38 +726,35 @@ function readContextForConsumer<T>(
     ? context._currentValue
     : context._currentValue2;
 
-  if (lastFullyObservedContext === context) {
-    // Nothing to do. We already observe everything in this context.
-  } else {
-    const contextItem = {
-      context: ((context: any): ReactContext<mixed>),
-      memoizedValue: value,
-      next: null,
-    };
+  const contextItem = {
+    context: ((context: any): ReactContext<mixed>),
+    memoizedValue: value,
+    next: null,
+  };
 
-    if (lastContextDependency === null) {
-      if (consumer === null) {
-        throw new Error(
-          'Context can only be read while React is rendering. ' +
-            'In classes, you can read it in the render method or getDerivedStateFromProps. ' +
-            'In function components, you can read it directly in the function body, but not ' +
-            'inside Hooks like useReducer() or useMemo().',
-        );
-      }
-
-      // This is the first dependency for this component. Create a new list.
-      lastContextDependency = contextItem;
-      consumer.dependencies = {
-        lanes: NoLanes,
-        firstContext: contextItem,
-      };
-      if (enableLazyContextPropagation) {
-        consumer.flags |= NeedsPropagation;
-      }
-    } else {
-      // Append a new context item.
-      lastContextDependency = lastContextDependency.next = contextItem;
+  if (lastContextDependency === null) {
+    if (consumer === null) {
+      throw new Error(
+        'Context can only be read while React is rendering. ' +
+          'In classes, you can read it in the render method or getDerivedStateFromProps. ' +
+          'In function components, you can read it directly in the function body, but not ' +
+          'inside Hooks like useReducer() or useMemo().',
+      );
     }
+
+    // This is the first dependency for this component. Create a new list.
+    lastContextDependency = contextItem;
+    consumer.dependencies = {
+      lanes: NoLanes,
+      firstContext: contextItem,
+    };
+    if (enableLazyContextPropagation) {
+      consumer.flags |= NeedsPropagation;
+    }
+  } else {
+    // Append a new context item.
+    lastContextDependency = lastContextDependency.next = contextItem;
   }
+
   return value;
 }
